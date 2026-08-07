@@ -12,6 +12,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
+            user-select: none; /* Mencegah seleksi teks/copy-paste */
         }
         .glass {
             background: rgba(30, 41, 59, 0.85);
@@ -41,7 +42,6 @@
         <div id="login-screen" class="glass w-full max-w-md rounded-2xl p-6 md:p-8 shadow-2xl space-y-6">
             <div class="text-center space-y-2">
                 <h2 class="text-2xl font-extrabold text-white">Login</h2>
-                
             </div>
 
             <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
@@ -62,6 +62,10 @@
                     <span>Mulai Ujian Sekarang →</span>
                 </button>
             </form>
+            
+            <div class="text-center text-xs text-slate-500 border-t border-slate-800/80 pt-4">
+                ⚠️ Memulai ujian akan otomatis mengaktifkan mode Layar Penuh (Fullscreen). Membuka tab lain akan dicatat sebagai pelanggaran.
+            </div>
         </div>
 
         <!-- SCREEN 2: UJIAN ONLINE -->
@@ -75,7 +79,10 @@
                         <div id="student-display-nis" class="text-xs text-slate-400">NIS: -</div>
                     </div>
                 </div>
-                <span id="question-progress" class="text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">Soal 1 dari 10</span>
+                <div class="flex items-center gap-2">
+                    <span id="violation-badge" class="text-xs font-bold text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20">Pelanggaran: 0/3</span>
+                    <span id="question-progress" class="text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">Soal 1 dari 10</span>
+                </div>
             </div>
 
             <!-- Progress Bar -->
@@ -144,6 +151,23 @@
 
     </main>
 
+    <!-- MODAL PERINGATAN KECURANGAN -->
+    <div id="warning-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass max-w-md w-full rounded-2xl p-6 md:p-8 text-center space-y-4 border-2 border-rose-500/50 shadow-2xl">
+            <div class="text-5xl animate-bounce">⚠️</div>
+            <h3 class="text-xl font-extrabold text-rose-400">Peringatan Kecurangan!</h3>
+            <p id="warning-text" class="text-sm text-slate-300 leading-relaxed">
+                Anda terdeteksi meninggalkan layar ujian atau berpindah tab!
+            </p>
+            <div id="warning-count-text" class="text-xs font-bold text-amber-400 bg-amber-500/10 py-2 rounded-lg border border-amber-500/20">
+                Pelanggaran: 1 / 3
+            </div>
+            <button onclick="resumeExam()" class="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl shadow-lg shadow-rose-600/30 transition transform hover:-translate-y-0.5">
+                Kembali Ke Ujian (Layar Penuh)
+            </button>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="max-w-4xl w-full mx-auto text-center text-xs text-slate-500 mt-6">
         Kuis Online Subnetting CIDR &copy; 2026 - GitHub Pages Edition
@@ -151,9 +175,9 @@
 
     <!-- SCRIPT LOGIC -->
     <script>
-        // URL Google Apps Script Web App
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDnHleP64l4_Zp9takxjfCOwp2HBUsyksUrCKN8aApMDuoRvi2L2ncxrCfcaMCozQHlw/exec";
         const STORAGE_KEY = "cidr_quiz_progress_session";
+        const MAX_VIOLATIONS = 3;
 
         // Web Audio Synthesizer
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -253,6 +277,8 @@
         let questions = [];
         let currentIndex = 0;
         let userAnswers = {};
+        let violationCount = 0;
+        let isExamActive = false;
 
         function shuffleArray(array) {
             const arr = [...array];
@@ -263,6 +289,28 @@
             return arr;
         }
 
+        // Fullscreen API Helper
+        function enterFullscreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(() => {});
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
+            }
+        }
+
+        function exitFullscreen() {
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        }
+
         // Simpan progress ke LocalStorage
         function saveState(screenState) {
             const payload = {
@@ -270,6 +318,8 @@
                 questions,
                 currentIndex,
                 userAnswers,
+                violationCount,
+                isExamActive,
                 screenState
             };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -288,6 +338,10 @@
                 questions = data.questions;
                 currentIndex = data.currentIndex || 0;
                 userAnswers = data.userAnswers || {};
+                violationCount = data.violationCount || 0;
+                isExamActive = data.isExamActive || false;
+
+                updateViolationBadge();
 
                 if (data.screenState === 'quiz' && questions.length > 0) {
                     document.getElementById('student-display-nis').innerText = `NIS: ${studentInfo.nis}`;
@@ -296,9 +350,15 @@
                     document.getElementById('login-screen').classList.add('hidden');
                     document.getElementById('quiz-screen').classList.remove('hidden');
                     renderQuestion();
+
+                    // Tampilkan peringatan jika dalam kondisi fullscreen terlepas saat reload
+                    if (!document.fullscreenElement) {
+                        triggerViolation("Sesi ujian dimuat ulang. Silakan masuk kembali ke mode Layar Penuh.");
+                    }
                 } else if (data.screenState === 'result') {
+                    isExamActive = false;
                     document.getElementById('login-screen').classList.add('hidden');
-                    finishQuiz(true); // render hasil tanpa kirim ulang data
+                    finishQuiz(true);
                 }
             } catch (err) {
                 console.error("Gagal memuat sesi:", err);
@@ -307,8 +367,40 @@
         }
 
         function resetExam() {
+            exitFullscreen();
             localStorage.removeItem(STORAGE_KEY);
             window.location.reload();
+        }
+
+        function updateViolationBadge() {
+            const badge = document.getElementById('violation-badge');
+            if (badge) {
+                badge.innerText = `Pelanggaran: ${violationCount}/${MAX_VIOLATIONS}`;
+            }
+        }
+
+        function triggerViolation(reason) {
+            if (!isExamActive) return;
+
+            violationCount++;
+            updateViolationBadge();
+            saveState('quiz');
+
+            if (violationCount >= MAX_VIOLATIONS) {
+                document.getElementById('warning-modal').classList.add('hidden');
+                alert(`Ujian dihentikan otomatis karena Anda melanggar aturan sebanyak ${MAX_VIOLATIONS}x (keluar dari layar penuh/pindah tab).`);
+                finishQuiz();
+            } else {
+                document.getElementById('warning-text').innerText = reason;
+                document.getElementById('warning-count-text').innerText = `Pelanggaran: ${violationCount} dari ${MAX_VIOLATIONS} (Ujian dikunci jika mencapai ${MAX_VIOLATIONS})`;
+                document.getElementById('warning-modal').classList.remove('hidden');
+            }
+        }
+
+        function resumeExam() {
+            playSound('click');
+            document.getElementById('warning-modal').classList.add('hidden');
+            enterFullscreen();
         }
 
         async function handleLogin(e) {
@@ -338,7 +430,6 @@
                     document.getElementById('student-display-nis').innerText = `NIS: ${studentInfo.nis}`;
                     document.getElementById('student-display-name').innerText = studentInfo.name;
 
-                    // Acak soal & opsi jawaban
                     questions = shuffleArray(rawQuestions).map(q => ({
                         ...q,
                         options: shuffleArray(q.options)
@@ -346,6 +437,11 @@
 
                     currentIndex = 0;
                     userAnswers = {};
+                    violationCount = 0;
+                    isExamActive = true;
+
+                    updateViolationBadge();
+                    enterFullscreen();
 
                     saveState('quiz');
 
@@ -428,7 +524,11 @@
         }
 
         function finishQuiz(isRestored = false) {
+            isExamActive = false;
+            exitFullscreen();
             playSound('correct');
+
+            document.getElementById('warning-modal').classList.add('hidden');
             document.getElementById('quiz-screen').classList.add('hidden');
             document.getElementById('result-screen').classList.remove('hidden');
 
@@ -468,7 +568,6 @@
 
             saveState('result');
 
-            // Jika sesi dimuat ulang (refresh), tak perlu kirim ulang ke Spreadsheet
             if (isRestored) {
                 const statusBadge = document.getElementById('sync-status');
                 statusBadge.className = "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
@@ -507,8 +606,33 @@
             });
         }
 
-        // Keyboard Shortcuts
+        // EVENT LISTENERS ANTI-KECURANGAN (PROCTORING)
+        
+        // Deteksi Pindah Tab / Minimize Window
+        document.addEventListener('visibilitychange', () => {
+            if (isExamActive && document.hidden) {
+                triggerViolation("Anda terdeteksi berpindah tab atau meminimalkan browser!");
+            }
+        });
+
+        // Deteksi Keluar Layar Penuh (ESC / F11)
+        document.addEventListener('fullscreenchange', () => {
+            if (isExamActive && !document.fullscreenElement) {
+                triggerViolation("Anda terdeteksi keluar dari mode Layar Penuh (Fullscreen)!");
+            }
+        });
+
+        // Keyboard Shortcuts Control
         document.addEventListener('keydown', (e) => {
+            // Blokir Shortcut Kombinasi Bahaya (Ctrl+Tab, Alt+Tab, F12, Ctrl+Shift+I, dst)
+            if (isExamActive) {
+                if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || (e.ctrlKey && e.key === 'u')) {
+                    e.preventDefault();
+                    triggerViolation("Penggunaan shortcut terlarang terdeteksi!");
+                    return;
+                }
+            }
+
             const quizScreen = document.getElementById('quiz-screen');
             if (quizScreen.classList.contains('hidden')) return;
 
