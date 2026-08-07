@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ujian Online CIDR & Subnetting</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Canvas Confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .glass {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between p-4 md:p-8 selection:bg-indigo-500 selection:text-white">
+
+    <!-- Navbar / Header -->
+    <header class="max-w-4xl w-full mx-auto flex justify-between items-center mb-6">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-xl shadow-lg shadow-indigo-500/30">
+                🌐
+            </div>
+            <div>
+                <h1 class="font-extrabold text-lg md:text-xl bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">Ujian Online CIDR</h1>
+                <p class="text-xs text-slate-400">Jaringan & Subnetting Komputer</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl w-full mx-auto flex-grow flex items-center justify-center">
+
+        <!-- SCREEN 1: LOGIN SISWA -->
+        <div id="login-screen" class="glass w-full max-w-md rounded-2xl p-6 md:p-8 shadow-2xl space-y-6">
+            <div class="text-center space-y-2">
+                <h2 class="text-2xl font-extrabold text-white">Login Siswa</h2>
+                <p class="text-slate-400 text-xs">Masukkan NIS Anda untuk memverifikasi hak akses ujian.</p>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Nomor Induk Siswa (NIS)</label>
+                    <input type="text" id="input-nis" required placeholder="Masukkan NIS terdaftar..." class="w-full bg-slate-900/90 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Nama Lengkap (Opsional)</label>
+                    <input type="text" id="input-name" placeholder="Akan terisi otomatis jika ada di sheet..." class="w-full bg-slate-900/90 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition">
+                </div>
+
+                <!-- Pesan Error Login -->
+                <div id="login-error" class="hidden p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold"></div>
+
+                <button id="btn-login" type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5 mt-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span>Mulai Ujian Sekarang →</span>
+                </button>
+            </form>
+
+            <div class="text-center text-xs text-slate-500 border-t border-slate-800/80 pt-4">
+                🔒 Sistem akan memvalidasi NIS Anda secara langsung ke Google Spreadsheet.
+            </div>
+        </div>
+
+        <!-- SCREEN 2: UJIAN ONLINE -->
+        <div id="quiz-screen" class="hidden glass w-full rounded-2xl p-6 md:p-8 shadow-2xl space-y-6">
+            <!-- Student Header Badge -->
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <div>
+                        <div id="student-display-name" class="text-sm font-bold text-white">Nama Siswa</div>
+                        <div id="student-display-nis" class="text-xs text-slate-400">NIS: -</div>
+                    </div>
+                </div>
+                <span id="question-progress" class="text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">Soal 1 dari 10</span>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full w-0 transition-all duration-300"></div>
+            </div>
+
+            <!-- Question Box -->
+            <div class="space-y-4">
+                <h3 id="question-text" class="text-lg md:text-xl font-bold text-slate-100 leading-relaxed">
+                    Memuat soal...
+                </h3>
+
+                <!-- Options -->
+                <div id="options-container" class="grid grid-cols-1 gap-3 pt-2">
+                    <!-- Dynamic rendering -->
+                </div>
+            </div>
+
+            <!-- Navigation Controls -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-800">
+                <button id="btn-prev" onclick="navigateQuestion(-1)" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed">
+                    ← Kembali
+                </button>
+                <button id="btn-next" onclick="navigateQuestion(1)" class="px-6 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-lg shadow-indigo-600/30 transition">
+                    Lanjut →
+                </button>
+            </div>
+        </div>
+
+        <!-- SCREEN 3: HASIL & STATUS REKAP -->
+        <div id="result-screen" class="hidden glass w-full rounded-2xl p-6 md:p-10 shadow-2xl space-y-8">
+            <div class="text-center space-y-3">
+                <div id="result-icon" class="text-5xl">🏆</div>
+                <h2 class="text-2xl md:text-3xl font-extrabold text-white">Ujian Selesai!</h2>
+                <p id="result-student-info" class="text-slate-300 text-sm font-semibold"></p>
+                
+                <!-- Score Display -->
+                <div class="py-2">
+                    <div id="final-score" class="text-6xl font-black bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                        0
+                    </div>
+                    <div class="text-xs text-slate-400 uppercase tracking-widest mt-1">Nilai Akhir</div>
+                </div>
+
+                <!-- Sync Status Badge -->
+                <div id="sync-status" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                    <span class="animate-spin">⏳</span> Mengirim nilai ke Spreadsheet...
+                </div>
+            </div>
+
+            <!-- Review Items -->
+            <div class="space-y-4">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400">Review Jawaban Anda</h3>
+                <div id="review-list" class="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                    <!-- Dynamic review items -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="max-w-4xl w-full mx-auto text-center text-xs text-slate-500 mt-6">
+        Kuis Online Subnetting CIDR &copy; 2026 - GitHub Pages Edition
+    </footer>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        // ⚠️ PASTEKAN URL GOOGLE APPS SCRIPT WEB APP ANDA DI BAWAH INI:
+        const GOOGLE_SCRIPT_URL = "URL_WEB_APP_GOOGLE_SCRIPT_ANDA_DI_SINI";
+
+        // Web Audio Synthesizer
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.08);
+                osc.frequency.setValueAtTime(783.99, now + 0.16);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            } else if (type === 'click') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, now);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            }
+        }
+
+        // Bank Soal CIDR
+        const rawQuestions = [
+            {
+                question: "Berapa subnet mask desimal dari prefix CIDR /26?",
+                options: ["255.255.255.128", "255.255.255.192", "255.255.255.224", "255.255.255.240"],
+                answer: "255.255.255.192",
+                explanation: "/26 berarti 26 bit bernilai 1. Octet terakhir adalah 11000000 (128 + 64 = 192)."
+            },
+            {
+                question: "Berapa jumlah host usable (dapat digunakan) pada network /28?",
+                options: ["14 host", "16 host", "30 host", "62 host"],
+                answer: "14 host",
+                explanation: "/28 menyisakan 4 bit host (32 - 28 = 4). Total IP = 2^4 = 16. Usable = 16 - 2 = 14 host."
+            },
+            {
+                question: "Manakah Network Address dari IP Address 192.168.1.135/27?",
+                options: ["192.168.1.128", "192.168.1.0", "192.168.1.130", "192.168.1.160"],
+                answer: "192.168.1.128",
+                explanation: "Blok size /27 adalah 32. Kelipatan 32 terdekat yang tidak melebihi 135 adalah 128."
+            },
+            {
+                question: "Manakah Broadcast Address dari IP Address 10.0.0.75/29?",
+                options: ["10.0.0.79", "10.0.0.78", "10.0.0.80", "10.0.0.255"],
+                answer: "10.0.0.79",
+                explanation: "Blok size /29 adalah 8. Subnet 72 - 79. Alamat terakhir (79) adalah Broadcast."
+            },
+            {
+                question: "IP Address pertama yang usable pada subnet 172.16.10.64/26 adalah...",
+                options: ["172.16.10.65", "172.16.10.64", "172.16.10.1", "172.16.10.66"],
+                answer: "172.16.10.65",
+                explanation: "Network address: 172.16.10.64. IP usable pertama: Network + 1 = 172.16.10.65."
+            },
+            {
+                question: "Prefix CIDR manakah yang memberikan tepat 62 host usable?",
+                options: ["/26", "/25", "/27", "/28"],
+                answer: "/26",
+                explanation: "2^6 - 2 = 62 host usable. Bit host = 6, maka Prefix = 32 - 6 = /26."
+            },
+            {
+                question: "Sebuah perusahaan membutuhkan minimal 100 host per subnet. Prefix CIDR paling efisien adalah...",
+                options: ["/25", "/24", "/26", "/27"],
+                answer: "/25",
+                explanation: "/25 menyediakan 2^7 - 2 = 126 host usable, cukup untuk menampung 100 host secara efisien."
+            },
+            {
+                question: "Berapa jumlah subnet baru yang terbentuk jika blok /24 dipecah menjadi beberapa subnet /28?",
+                options: ["16 subnet", "8 subnet", "4 subnet", "32 subnet"],
+                answer: "16 subnet",
+                explanation: "Selisih prefix = 28 - 24 = 4 bit. Jumlah subnet = 2^4 = 16 subnet."
+            },
+            {
+                question: "IP Address 192.168.5.200/28 berada pada rentang IP Usable berapa?",
+                options: ["192.168.5.193 - 192.168.5.206", "192.168.5.192 - 192.168.5.207", "192.168.5.201 - 192.168.5.214", "192.168.5.129 - 192.168.5.254"],
+                answer: "192.168.5.193 - 192.168.5.206",
+                explanation: "Blok size /28 adalah 16. Subnet: .192, Broadcast: .207. Rentang Usable: .193 s/d .206."
+            },
+            {
+                question: "Subnet mask desimal 255.255.255.248 setara dengan prefix CIDR...",
+                options: ["/29", "/28", "/30", "/27"],
+                answer: "/29",
+                explanation: "256 - 248 = 8 (2^3). Bit tersisa untuk host = 3. Prefix = 32 - 3 = /29."
+            }
+        ];
+
+        // State Variables
+        let studentInfo = { nis: '', name: '' };
+        let questions = [];
+        let currentIndex = 0;
+        let userAnswers = {};
+
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            playSound('click');
+
+            const nisInput = document.getElementById('input-nis').value.trim();
+            const nameInput = document.getElementById('input-name').value.trim();
+            const loginBtn = document.getElementById('btn-login');
+            const errorDiv = document.getElementById('login-error');
+
+            errorDiv.classList.add('hidden');
+
+            if (!nisInput) return;
+
+            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("URL_WEB_APP_GOOGLE_SCRIPT_ANDA")) {
+                errorDiv.innerText = "⚠️ URL Google Apps Script belum dikonfigurasi.";
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = `<span>⏳ Memeriksa NIS...</span>`;
+
+            try {
+                // Verifikasi NIS ke Google Apps Script via GET
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?nis=${encodeURIComponent(nisInput)}`);
+                const result = await response.json();
+
+                if (result.status === 'success' && result.valid) {
+                    studentInfo.nis = result.nis || nisInput;
+                    studentInfo.name = result.name || nameInput || "Siswa";
+
+                    document.getElementById('student-display-nis').innerText = `NIS: ${studentInfo.nis}`;
+                    document.getElementById('student-display-name').innerText = studentInfo.name;
+
+                    // Acak soal & opsi jawaban
+                    questions = shuffleArray(rawQuestions).map(q => ({
+                        ...q,
+                        options: shuffleArray(q.options)
+                    }));
+
+                    currentIndex = 0;
+                    userAnswers = {};
+
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('quiz-screen').classList.remove('hidden');
+
+                    renderQuestion();
+                } else {
+                    errorDiv.innerText = "❌ NIS tidak terdaftar dalam sheet data siswa. Silakan periksa kembali.";
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error(err);
+                errorDiv.innerText = "❌ Gagal memverifikasi NIS. Periksa koneksi internet Anda.";
+                errorDiv.classList.remove('hidden');
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = `<span>Mulai Ujian Sekarang →</span>`;
+            }
+        }
+
+        function renderQuestion() {
+            const q = questions[currentIndex];
+            document.getElementById('question-progress').innerText = `Soal ${currentIndex + 1} dari ${questions.length}`;
+            document.getElementById('question-text').innerText = `${currentIndex + 1}. ${q.question}`;
+
+            const progressPercent = ((currentIndex + 1) / questions.length) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            const labels = ['A', 'B', 'C', 'D'];
+
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                const isSelected = userAnswers[currentIndex] === opt;
+
+                let btnStyles = 'border-slate-700 bg-slate-800/60 hover:bg-slate-800 hover:border-slate-600 text-slate-200';
+                if (isSelected) {
+                    btnStyles = 'border-indigo-500 bg-indigo-500/20 text-white font-semibold ring-2 ring-indigo-500/50';
+                }
+
+                btn.className = `w-full p-4 rounded-xl border-2 text-left transition flex items-center justify-between group ${btnStyles}`;
+                btn.onclick = () => selectOption(opt);
+
+                btn.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="w-7 h-7 rounded-lg bg-slate-700/80 text-xs font-bold flex items-center justify-center text-slate-300 group-hover:bg-indigo-600 group-hover:text-white transition">${labels[idx]}</span>
+                        <span class="text-sm font-medium">${opt}</span>
+                    </div>
+                    ${isSelected ? '<span class="text-indigo-400 font-bold">✓</span>' : ''}
+                `;
+                container.appendChild(btn);
+            });
+
+            document.getElementById('btn-prev').disabled = currentIndex === 0;
+            document.getElementById('btn-next').innerText = currentIndex === questions.length - 1 ? 'Selesaikan Ujian 🏁' : 'Lanjut →';
+        }
+
+        function selectOption(selectedOpt) {
+            playSound('click');
+            userAnswers[currentIndex] = selectedOpt;
+            renderQuestion();
+        }
+
+        function navigateQuestion(direction) {
+            playSound('click');
+            if (direction === 1 && currentIndex < questions.length - 1) {
+                currentIndex++;
+                renderQuestion();
+            } else if (direction === -1 && currentIndex > 0) {
+                currentIndex--;
+                renderQuestion();
+            } else if (direction === 1 && currentIndex === questions.length - 1) {
+                finishQuiz();
+            }
+        }
+
+        function finishQuiz() {
+            playSound('correct');
+            document.getElementById('quiz-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+
+            document.getElementById('result-student-info').innerText = `${studentInfo.name} (${studentInfo.nis})`;
+
+            let score = 0;
+            const reviewList = document.getElementById('review-list');
+            reviewList.innerHTML = '';
+
+            questions.forEach((q, idx) => {
+                const userAns = userAnswers[idx];
+                const isCorrect = userAns === q.answer;
+                if (isCorrect) score++;
+
+                const item = document.createElement('div');
+                item.className = `p-4 rounded-xl border ${isCorrect ? 'bg-emerald-950/20 border-emerald-800/40' : 'bg-rose-950/20 border-rose-800/40'} text-xs space-y-2`;
+                item.innerHTML = `
+                    <div class="font-bold text-slate-200 text-sm">${idx + 1}. ${q.question}</div>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="${isCorrect ? 'text-emerald-400' : 'text-rose-400'} font-semibold">Jawaban Siswa: ${userAns || 'Tidak dijawab'}</span>
+                        ${!isCorrect ? `<span class="text-slate-400">| Jawaban Benar: <strong class="text-emerald-400">${q.answer}</strong></span>` : ''}
+                    </div>
+                    <div class="text-slate-400 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">${q.explanation}</div>
+                `;
+                reviewList.appendChild(item);
+            });
+
+            const finalScoreVal = Math.round((score / questions.length) * 100);
+            document.getElementById('final-score').innerText = finalScoreVal;
+
+            if (finalScoreVal >= 80) {
+                document.getElementById('result-icon').innerText = '🎉';
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            } else {
+                document.getElementById('result-icon').innerText = '📝';
+            }
+
+            // Kirim Rekap ke Google Spreadsheet
+            sendDataToSpreadsheet({
+                nis: studentInfo.nis,
+                name: studentInfo.name,
+                score: finalScoreVal,
+                correctCount: score,
+                totalQuestions: questions.length
+            });
+        }
+
+        // Fungsi Pengiriman Data ke Google Apps Script / Spreadsheet
+        function sendDataToSpreadsheet(data) {
+            const statusBadge = document.getElementById('sync-status');
+
+            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("URL_WEB_APP_GOOGLE_SCRIPT_ANDA")) {
+                statusBadge.className = "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30";
+                statusBadge.innerHTML = "⚠️ URL Google Apps Script belum dikonfigurasi.";
+                return;
+            }
+
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            })
+            .then(() => {
+                statusBadge.className = "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+                statusBadge.innerHTML = "✅ Data nilai berhasil terkirim ke Spreadsheet!";
+            })
+            .catch(err => {
+                statusBadge.className = "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/30";
+                statusBadge.innerHTML = "❌ Gagal mengirim nilai. Periksa koneksi internet.";
+                console.error(err);
+            });
+        }
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            const quizScreen = document.getElementById('quiz-screen');
+            if (quizScreen.classList.contains('hidden')) return;
+
+            const keyMap = { '1': 0, '2': 1, '3': 2, '4': 3, 'a': 0, 'b': 1, 'c': 2, 'd': 3, 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+            if (e.key in keyMap) {
+                const optIdx = keyMap[e.key];
+                if (questions[currentIndex] && questions[currentIndex].options[optIdx]) {
+                    selectOption(questions[currentIndex].options[optIdx]);
+                }
+            } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
+                navigateQuestion(1);
+            } else if (e.key === 'ArrowLeft') {
+                navigateQuestion(-1);
+            }
+        });
+    </script>
+</body>
+</html>
