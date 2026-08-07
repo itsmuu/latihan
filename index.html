@@ -26,6 +26,7 @@
     <header class="max-w-4xl w-full mx-auto flex justify-between items-center mb-6">
         <div class="flex items-center space-x-3">
             <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-xl shadow-lg shadow-indigo-500/30">
+                🌐
             </div>
             <div>
                 <h1 class="font-extrabold text-lg md:text-xl bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">Ujian Online CIDR</h1>
@@ -149,7 +150,8 @@
     <!-- SCRIPT LOGIC -->
     <script>
         // ⚠️ PASTEKAN URL GOOGLE APPS SCRIPT WEB APP ANDA DI BAWAH INI:
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwBfPVlLf64zK5J55tPv75Mi6Za3vK8XYgBLIuoZgzAqXr_akpyM07dyzCntCXuvOdtqQ/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDnHleP64l4_Zp9takxjfCOwp2HBUsyksUrCKN8aApMDuoRvi2L2ncxrCfcaMCozQHlw/exec";
+
         // Web Audio Synthesizer
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playSound(type) {
@@ -271,7 +273,7 @@
 
             if (!nisInput) return;
 
-            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("URL_WEB_APP_GOOGLE_SCRIPT_ANDA")) {
+            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("https://script.google.com/macros/s/AKfycbzDnHleP64l4_Zp9takxjfCOwp2HBUsyksUrCKN8aApMDuoRvi2L2ncxrCfcaMCozQHlw/exec")) {
                 errorDiv.innerText = "⚠️ URL Google Apps Script belum dikonfigurasi.";
                 errorDiv.classList.remove('hidden');
                 return;
@@ -429,7 +431,7 @@
         function sendDataToSpreadsheet(data) {
             const statusBadge = document.getElementById('sync-status');
 
-            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("URL_WEB_APP_GOOGLE_SCRIPT_ANDA")) {
+            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("https://script.google.com/macros/s/AKfycbzDnHleP64l4_Zp9takxjfCOwp2HBUsyksUrCKN8aApMDuoRvi2L2ncxrCfcaMCozQHlw/exec")) {
                 statusBadge.className = "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30";
                 statusBadge.innerHTML = "⚠️ URL Google Apps Script belum dikonfigurasi.";
                 return;
