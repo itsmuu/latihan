@@ -47,7 +47,7 @@
             <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Nomor Induk Siswa (NIS)</label>
-                    <input type="text" id="input-nis" required placeholder="Masukkan NIS terdaftar..." class="w-full bg-slate-900/90 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition">
+                    <input type="text" id="input-nis" required placeholder="Contoh: 25-13756" class="w-full bg-slate-900/90 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition">
                 </div>
 
                 <div>
@@ -149,7 +149,7 @@
 
     <!-- SCRIPT LOGIC -->
     <script>
-        // ⚠️ PASTEKAN URL GOOGLE APPS SCRIPT WEB APP ANDA DI BAWAH INI:
+        // URL Google Apps Script Web App
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDnHleP64l4_Zp9takxjfCOwp2HBUsyksUrCKN8aApMDuoRvi2L2ncxrCfcaMCozQHlw/exec";
 
         // Web Audio Synthesizer
@@ -273,17 +273,10 @@
 
             if (!nisInput) return;
 
-            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("https://script.google.com/macros/s/AKfycbzDnHleP64l4_Zp9takxjfCOwp2HBUsyksUrCKN8aApMDuoRvi2L2ncxrCfcaMCozQHlw/exec")) {
-                errorDiv.innerText = "⚠️ URL Google Apps Script belum dikonfigurasi.";
-                errorDiv.classList.remove('hidden');
-                return;
-            }
-
             loginBtn.disabled = true;
             loginBtn.innerHTML = `<span>⏳ Memeriksa NIS...</span>`;
 
             try {
-                // Verifikasi NIS ke Google Apps Script via GET
                 const response = await fetch(`${GOOGLE_SCRIPT_URL}?nis=${encodeURIComponent(nisInput)}`);
                 const result = await response.json();
 
@@ -430,12 +423,6 @@
         // Fungsi Pengiriman Data ke Google Apps Script / Spreadsheet
         function sendDataToSpreadsheet(data) {
             const statusBadge = document.getElementById('sync-status');
-
-            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("https://script.google.com/macros/s/AKfycbzDnHleP64l4_Zp9takxjfCOwp2HBUsyksUrCKN8aApMDuoRvi2L2ncxrCfcaMCozQHlw/exec")) {
-                statusBadge.className = "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30";
-                statusBadge.innerHTML = "⚠️ URL Google Apps Script belum dikonfigurasi.";
-                return;
-            }
 
             fetch(GOOGLE_SCRIPT_URL, {
                 method: "POST",
