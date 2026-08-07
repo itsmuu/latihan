@@ -138,6 +138,12 @@
                     <!-- Dynamic review items -->
                 </div>
             </div>
+
+            <div class="pt-4 border-t border-slate-800 text-center">
+                <button onclick="resetExam()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+                    🔄 Keluar / Sesi Baru
+                </button>
+            </div>
         </div>
 
     </main>
@@ -151,6 +157,7 @@
     <script>
         // URL Google Apps Script Web App
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDnHleP64l4_Zp9takxjfCOwp2HBUsyksUrCKN8aApMDuoRvi2L2ncxrCfcaMCozQHlw/exec";
+        const STORAGE_KEY = "cidr_quiz_progress_session";
 
         // Web Audio Synthesizer
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -260,6 +267,54 @@
             return arr;
         }
 
+        // Simpan progress ke LocalStorage
+        function saveState(screenState) {
+            const payload = {
+                studentInfo,
+                questions,
+                currentIndex,
+                userAnswers,
+                screenState
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        }
+
+        // Muat progress saat halaman di-refresh
+        function loadState() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (!saved) return;
+
+            try {
+                const data = JSON.parse(saved);
+                if (!data || !data.studentInfo || !data.questions) return;
+
+                studentInfo = data.studentInfo;
+                questions = data.questions;
+                currentIndex = data.currentIndex || 0;
+                userAnswers = data.userAnswers || {};
+
+                if (data.screenState === 'quiz' && questions.length > 0) {
+                    document.getElementById('student-display-nis').innerText = `NIS: ${studentInfo.nis}`;
+                    document.getElementById('student-display-name').innerText = studentInfo.name;
+
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('quiz-screen').classList.remove('hidden');
+                    renderQuestion();
+                } else if (data.screenState === 'result') {
+                    document.getElementById('login-screen').classList.add('hidden');
+                    finishQuiz(true); // render hasil tanpa kirim ulang data
+                }
+            } catch (err) {
+                console.error("Gagal memuat sesi:", err);
+                localStorage.removeItem(STORAGE_KEY);
+            }
+        }
+
+        function resetExam() {
+            localStorage.removeItem(STORAGE_KEY);
+            window.location.reload();
+        }
+
         async function handleLogin(e) {
             e.preventDefault();
             playSound('click');
@@ -295,6 +350,8 @@
 
                     currentIndex = 0;
                     userAnswers = {};
+
+                    saveState('quiz');
 
                     document.getElementById('login-screen').classList.add('hidden');
                     document.getElementById('quiz-screen').classList.remove('hidden');
@@ -355,6 +412,7 @@
         function selectOption(selectedOpt) {
             playSound('click');
             userAnswers[currentIndex] = selectedOpt;
+            saveState('quiz');
             renderQuestion();
         }
 
@@ -362,16 +420,18 @@
             playSound('click');
             if (direction === 1 && currentIndex < questions.length - 1) {
                 currentIndex++;
+                saveState('quiz');
                 renderQuestion();
             } else if (direction === -1 && currentIndex > 0) {
                 currentIndex--;
+                saveState('quiz');
                 renderQuestion();
             } else if (direction === 1 && currentIndex === questions.length - 1) {
                 finishQuiz();
             }
         }
 
-        function finishQuiz() {
+        function finishQuiz(isRestored = false) {
             playSound('correct');
             document.getElementById('quiz-screen').classList.add('hidden');
             document.getElementById('result-screen').classList.remove('hidden');
@@ -410,14 +470,22 @@
                 document.getElementById('result-icon').innerText = '📝';
             }
 
-            // Kirim Rekap ke Google Spreadsheet
-            sendDataToSpreadsheet({
-                nis: studentInfo.nis,
-                name: studentInfo.name,
-                score: finalScoreVal,
-                correctCount: score,
-                totalQuestions: questions.length
-            });
+            saveState('result');
+
+            // Jika sesi dimuat ulang (refresh), tak perlu kirim ulang ke Spreadsheet
+            if (isRestored) {
+                const statusBadge = document.getElementById('sync-status');
+                statusBadge.className = "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+                statusBadge.innerHTML = "✅ Data nilai tersimpan di Spreadsheet.";
+            } else {
+                sendDataToSpreadsheet({
+                    nis: studentInfo.nis,
+                    name: studentInfo.name,
+                    score: finalScoreVal,
+                    correctCount: score,
+                    totalQuestions: questions.length
+                });
+            }
         }
 
         // Fungsi Pengiriman Data ke Google Apps Script / Spreadsheet
@@ -460,6 +528,9 @@
                 navigateQuestion(-1);
             }
         });
+
+        // Muat Sesi Otomatis Saat Halaman Dimuat
+        window.addEventListener('DOMContentLoaded', loadState);
     </script>
 </body>
 </html>
